@@ -30,8 +30,6 @@ class StringAligner(object):
 	"""
 	def __init__(self, s1, s2, gapPenalty = GAP_PENALTY, mismatchPenalty = MISMATCH_PENALTY):
 		assert type(s1) == type(s2) == type("") # input type must be string
-		assert(len(s1)) > 0 # cannot align to an empty string
-		assert(len(s2)) > 0
 		assert(gapPenalty > 0)
 		assert(mismatchPenalty > 0)
 		self._s1 = s1
@@ -168,4 +166,4 @@ if __name__ == "__main__":
 	aligner = StringAligner(S1, S2)
 	aligner.align()
 	print aligner
-	print align("xyxyx", "xyay")
+	print align("xyxyx", "")
