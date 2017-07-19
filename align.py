@@ -52,6 +52,8 @@ class StringAligner(object):
 		Implements Needleman-Wunsch alignment algorithm and returns optimal alignment.
 
 		If align() has previously been called, previous return is memoized and returned
+
+		Return type is a tuple of (alignment for s1, alignment for s2)
 		"""
 		if self._bestAlignment is None:
 			self._constructAlignment()
@@ -108,7 +110,9 @@ class StringAligner(object):
 
 	def _constructAlignment(self):
 		"""
-		Uses the completed score matrix
+		Uses the completed score matrix to return the optimal alignment between s1 and s2
+
+		Alignments are stored as a tuple of (alignment for s1, alignment for s2)
 		"""
 		if self._scoreMatrix is None:
 			self._computeScoreMatrix()
