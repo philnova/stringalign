@@ -24,4 +24,4 @@ StringAligner takes two optional named parameters, mismatchPenalty and gapPenalt
 
 ## Implementation
 
-```stringalign``` uses the [Needleman-Wunsch algorithm](https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm). Default mismatch penalty, gap penalty, and match score are 2, 3, and 0, respectively. Runtime is quadratic; O( max(len(s1), len(s2)) ** 2 ).
+```stringalign``` uses the [Needleman-Wunsch algorithm](https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm) using the [Affine Gap extension](https://www.cs.cmu.edu/~ckingsf/bioinfo-lectures/gaps.pdf). Runtime is quadratic; O( max(len(s1), len(s2)) ** 2 ).

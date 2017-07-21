@@ -75,37 +75,49 @@ class StringAligner(object):
 		Returns alignment score of best alignment found for s1 and s2
 		"""
 		if self._matchMatrix is None:
-			self._computeScoreMatrix()
+			self._computeScoreMatrices()
 		return min(self._matchMatrix[-1][-1], self._gapMatrix1[-1][-1], self._gapMatrix2[-1][-1])
 
-	def _initializeMatrix(self):
+	def _initializeMatrices(self):
 		"""
-		Initializes the score matrix for the alignment of s1 and s2
+		Initializes the score matrices for the alignment of s1 and s2. 
 
-		s1 is placed on the rows of the matrix, while s2 is on the columns
+		Affine gap scoring uses three matrices (rather than the standard one); since we penalize gap 
+		extension differently from gap opening, we need to keep track of additional state beyond the current
+		indices -- i.e., whether we are already extending a gap. We could simply add "long" edges
+		to the transition matrix, but this would create a cubic runtime, with O(n) work at each
+		(i,j) as we iterated over (0..i-1,j) and (i,0..j-1).
+		We can keep our work constant at each (i,j) by storing three matrices: one for the best alignment
+		of s1 and s2 ending in a match (matchMatrix), a second for the best alignment of s1 and s2 ending
+		in a gap for s1 (gapMatrix1), and a third for the best alignment of s1 and s2 ending in a gap for s2
+		(gapMatrix2). We allow transitions between the matrices.
+		Illegal values in the matrices are initialized to infinity.
 
-		Helper function for computeScoreMatrix()
+		s1 is placed on the rows of each matrix, while s2 is on the columns
+
+		Helper function for computeScoreMatrices()
 		"""
+
 		# initialize an len(s1) + 1 x len(s2) + 1 matrix of 0s
 		self._matchMatrix = zeroMatrix(len(self._s1) + 1, len(self._s2) + 1)
 		self._gapMatrix1 = zeroMatrix(len(self._s1) + 1, len(self._s2) + 1)
 		self._gapMatrix2 = zeroMatrix(len(self._s1) + 1, len(self._s2) + 1)
 
-		# set the first row and first column of matchMatrix to inf
-		# set the first column of the gap matrices to -inf
+		# set the first row and first column of matchMatrix to inf - we cannot match a sequence terminating in a character to an empty string
 		self._matchMatrix[0] = [float("inf") for j in range(len(self._s2) + 1)]
+
 		# set the first row of the gap matrix for s1 to the gap penalty (including gap extension)
 		self._gapMatrix1[0] = [self._gapOpeningPenalty + self._gapExtensionPenalty * j for j in range(len(self._s2) + 1)]
 		
 		for i in range(len(self._s1) + 1):
-			self._matchMatrix[i][0] = float("inf")
-			self._gapMatrix1[i][0] = float("inf")
-			self._gapMatrix2[i][0] = self._gapOpeningPenalty + self._gapExtensionPenalty * i
+			self._matchMatrix[i][0] = float("inf") # first column in matchMatrix is meaningless; would imply a match between an empty string and a character
+			self._gapMatrix1[i][0] = float("inf") # first column in gapMatrix1 is meaningless; would imply a gap matched to a gap
+			self._gapMatrix2[i][0] = self._gapOpeningPenalty + self._gapExtensionPenalty * i # first column in gapMatrix2 is valid; represents traversing s2 only
 
-		
+		# set the left-most position in matchMatrix to 0, since we *can* match an empty string to an empty string
 		self._matchMatrix[0][0] = 0
 
-		# gap matrix 2 is a transpose of gap matrix 1: gap penalty along column, undefined on row
+		# gap matrix 2 is a transpose of gap matrix 1: gap penalty along column, infinite on row
 		self._gapMatrix2[0] = [float("inf") for j in range(len(self._s2) + 1)]
 
 		# print self._matchMatrix
@@ -115,59 +127,58 @@ class StringAligner(object):
 		# print self._gapMatrix2
 		
 
-	def _computeScoreMatrix(self):
+	def _computeScoreMatrices(self):
 		"""
-		Fills in the score matrix for the alignment of s1 and s2
+		Fills in the score matrices for the alignment of s1 and s2
 
 		Helper function for constructAlignment()
 		"""
-		self._initializeMatrix()
+		self._initializeMatrices()
 		for i in range(1, len(self._s1) + 1):
 			for j in range(1, len(self._s2) + 1):
 				
+				# determine whether the current positions in s1 and s2 match and apply appropriate score
 				if self._s1[i - 1] == self._s2[j - 1]:
-					matchScore = self._matchBonus
-				else:
+					matchScore = self._matchBonus # match
+				else: # no match
 					matchScore = self._mismatchPenalty
 
+				# find best alignment ending in a match between s1 and s2
 				self._matchMatrix[i][j] = matchScore + min(
 					self._matchMatrix[i - 1][j - 1]
 					, self._gapMatrix1[i - 1][j - 1]
 					, self._gapMatrix2[i - 1][j - 1]
 				)
 
+				# find best alignment ending in a gap in s1
 				self._gapMatrix1[i][j] = min(
 					self._gapOpeningPenalty + self._gapExtensionPenalty + self._matchMatrix[i][j - 1]
 					, self._gapExtensionPenalty + self._gapMatrix1[i][j - 1]
 					, self._gapOpeningPenalty + self._gapExtensionPenalty + self._gapMatrix2[i][j - 1]
 				)
 
+				# find best alignment ending in a gap in s2
 				self._gapMatrix2[i][j] = min(
 					self._gapOpeningPenalty + self._gapExtensionPenalty + self._matchMatrix[i - 1][j]
 					, self._gapOpeningPenalty + self._gapExtensionPenalty + self._gapMatrix1[i - 1][j]
 					, self._gapExtensionPenalty + self._gapMatrix2[i - 1][j]
 				)
 
-		# print self._matchMatrix
-		# print "\n"
-		# print self._gapMatrix1
-		# print "\n"
-		# print self._gapMatrix2
-
 
 	def _constructAlignment(self):
 		"""
-		Uses the completed score matrix to return the optimal alignment between s1 and s2
+		Uses the completed score matrices to return the optimal alignment between s1 and s2
 
 		Alignments are stored as a tuple of (alignment for s1, alignment for s2)
 		"""
 		if self._matchMatrix is None:
-			self._computeScoreMatrix()
+			self._computeScoreMatrices()
 
 		i, j = len(self._s1), len(self._s2) # keep track of s1 and s2
 		s1Align, s2Align = "", ""
 
 		# determine which matrix to start in
+		# by taking the minimum of the rightmost bottom corner of all three matrices
 		score = self.getAlignmentScore()
 		if score == self._matchMatrix[-1][-1]:
 			currentMatrix = self._matchMatrix
@@ -178,22 +189,26 @@ class StringAligner(object):
 
 		while i > 0 or j > 0:
 
+			# best alignment has a match at this position
 			if currentMatrix == self._matchMatrix:
 				s1Align += self._s1[i - 1]
 				s2Align += self._s2[j - 1]
 				i -= 1
 				j -= 1
 
+			# best alignment ends in a gap in s1
 			elif currentMatrix == self._gapMatrix1:
 				s1Align += "-"
 				s2Align += self._s2[j - 1]
-				j -= 1
+				j -= 1 # traverse s2 only
 
+			# best alignment ends in a gap in s2
 			elif currentMatrix == self._gapMatrix2:
 				s2Align += "-"
 				s1Align += self._s1[i - 1]
-				i -= 1
+				i -= 1 # traverse s1 only
 
+			# determine which of the three matrices to transition to
 			score = min(self._matchMatrix[i][j], self._gapMatrix1[i][j], self._gapMatrix2[i][j])
 			if score == self._matchMatrix[i][j]:
 				currentMatrix = self._matchMatrix
@@ -204,7 +219,6 @@ class StringAligner(object):
 			else:
 				raise ValueError('Current score does not match any matrix!')
 			
-
 		# since we moved from the end of the matrix to the source, our alignments are backward
 		s1Align = s1Align[::-1] # hacky slice syntax for reversing strings
 		s2Align = s2Align[::-1]
@@ -227,8 +241,6 @@ if __name__ == "__main__":
 	aligner = StringAligner(S1, S2)
 	aligner.align()
 	print aligner
-	#CACATATTATTCACT 
-	#CAGATTATT-TCA-T
 	
 	S1 = "TACAGACTTAGTGCATGGATTATTAACCCAATAGACCAAAACAGATCTGACTATCTTGTAAATACATATTTAGGGACTTTTAACACACATATTATTTCACTGATGGACTGTAACAGGTCCCTTCAGAGCCACGGCAGACAAGCAAATGCTTCTTTGGAGATATTATACTCA"
 	S2 = "TACAGACTTAGTGCATGGATTATTAACCCAATAGACCAAAACAGATCTGACTATCTTGTAAATACATATTTAGGGACTTTTAACATGCAGATTATTTCATTGATGGACTGTAACAGGTCCCTTCAGAGCCACGGCAGACAAGCAAATGCTTCTTTGGAGTTATTATAGTCA"
