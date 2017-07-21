@@ -14,7 +14,7 @@ Runtime of alignment is quadratic in the length of the input strings.
 GAP_OPENING_PENALTY = 2
 GAP_EXTENSION_PENALTY = 1
 MISMATCH_PENALTY = 1
-MATCH_BONUS = -2
+MATCH_BONUS = -1
 
 def zeroMatrix(nRow, nCol):
 	return [[0 for j in range(nCol)] for i in range(nRow)]
@@ -91,18 +91,20 @@ class StringAligner(object):
 		self._gapMatrix1 = zeroMatrix(len(self._s1) + 1, len(self._s2) + 1)
 		self._gapMatrix2 = zeroMatrix(len(self._s1) + 1, len(self._s2) + 1)
 
-		# set the first row and first column of matchMatrix to -inf
+		# set the first row and first column of matchMatrix to inf
 		# set the first column of the gap matrices to -inf
 		self._matchMatrix[0] = [float("inf") for j in range(len(self._s2) + 1)]
 		# set the first row of the gap matrix for s1 to the gap penalty (including gap extension)
-		self._gapMatrix1[0] = [self._gapOpeningPenalty + self._gapExtensionPenalty * (j - 1) for j in range(len(self._s2) + 1)]
+		self._gapMatrix1[0] = [self._gapOpeningPenalty + self._gapExtensionPenalty * j for j in range(len(self._s2) + 1)]
 		
 		for i in range(len(self._s1) + 1):
 			self._matchMatrix[i][0] = float("inf")
 			self._gapMatrix1[i][0] = float("inf")
-			self._gapMatrix2[i][0] = self._gapOpeningPenalty + self._gapExtensionPenalty * (i - 1)
+			self._gapMatrix2[i][0] = self._gapOpeningPenalty + self._gapExtensionPenalty * i
 
 		
+		self._matchMatrix[0][0] = 0
+
 		# gap matrix 2 is a transpose of gap matrix 1: gap penalty along column, undefined on row
 		self._gapMatrix2[0] = [float("inf") for j in range(len(self._s2) + 1)]
 
@@ -112,7 +114,6 @@ class StringAligner(object):
 		# print "\n"
 		# print self._gapMatrix2
 		
-
 
 	def _computeScoreMatrix(self):
 		"""
@@ -176,7 +177,6 @@ class StringAligner(object):
 			currentMatrix = self._gapMatrix2
 
 		while i > 0 or j > 0:
-			#print i, j, s1Align, s2Align, score
 
 			if currentMatrix == self._matchMatrix:
 				s1Align += self._s1[i - 1]
@@ -222,11 +222,17 @@ def align(s1, s2):
 
 if __name__ == "__main__":
 	# example code
-	S1 = "CACATATTATTCACT"
-	S2 = "CAGATTATTTCAT"
+	S1 = "CTACTAATTGGTTAATTGGCGACAGGCTCTGTAAGGTGGTAAGGGACAAATTAAGTTGGAGCAAGAAGCATGCGCTAGGCCTGACCATCTTCATTATCGCCGGCAAGGCCATCAGCCAGGCTGTGCCCATCTTCCCCAGGGAAATCTCTTAGAAGGATCCTGTGATCTTTT"
+	S2 = "ACTAATTGGTTAATTGGCGACAGGCTATGTAAGGTGGTAAGGGACAAATTAAGTTGGAGCAAGAAGCATGCGTTTGTTAGGTCTGATCATCTTCATTATCGCCTGCAAGGCCATCAGCCAGGCTGTGCCCATCTTCCCTAGGGAAATCTCTTAGAAGGATCCTGTGATCTT"
 	aligner = StringAligner(S1, S2)
 	aligner.align()
 	print aligner
 	#CACATATTATTCACT 
 	#CAGATTATT-TCA-T
+	
+	S1 = "TACAGACTTAGTGCATGGATTATTAACCCAATAGACCAAAACAGATCTGACTATCTTGTAAATACATATTTAGGGACTTTTAACACACATATTATTTCACTGATGGACTGTAACAGGTCCCTTCAGAGCCACGGCAGACAAGCAAATGCTTCTTTGGAGATATTATACTCA"
+	S2 = "TACAGACTTAGTGCATGGATTATTAACCCAATAGACCAAAACAGATCTGACTATCTTGTAAATACATATTTAGGGACTTTTAACATGCAGATTATTTCATTGATGGACTGTAACAGGTCCCTTCAGAGCCACGGCAGACAAGCAAATGCTTCTTTGGAGTTATTATAGTCA"
+	aligner = StringAligner(S1, S2)
+	aligner.align()
+	print aligner
 	
